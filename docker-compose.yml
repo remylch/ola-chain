@@ -4,27 +4,29 @@ services:
   node1:
     build: .
     environment:
-      - NODE_IP=127.0.0.1
+      - NODE_IP=0.0.0.0
       - NODE_PORT=9999
       - BLOCKCHAIN_DATA_PATH=/app/data
     ports:
       - "9999:9999"
     networks:
-      - blockchain-network
+      blockchain-network:
+        ipv4_address: 172.25.0.10
     volumes:
       - blockchain-data:/app/data
 
   node2:
     build: .
     environment:
-      - NODE_IP=127.0.0.1
+      - NODE_IP=0.0.0.0
       - NODE_PORT=9998
-      - NODES=127.0.0.1:9999
+      - NODES=172.25.0.10:9999
       - BLOCKCHAIN_DATA_PATH=/app/data
     ports:
       - "9998:9998"
     networks:
-      - blockchain-network
+      blockchain-network:
+        ipv4_address: 172.25.0.11
     volumes:
       - blockchain-data:/app/data
     depends_on:
@@ -34,6 +36,9 @@ services:
 networks:
   blockchain-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
 
 volumes:
   blockchain-data: {}

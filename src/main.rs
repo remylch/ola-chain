@@ -12,7 +12,6 @@ fn main() {
     dotenv().ok();
     println!("Starting Ola node");
     Chain::load_or_create();
-    let node = Node::me();
-    node.start();
+    Node::me().start();
     println!("Stopping Ola node");
 }

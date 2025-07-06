@@ -39,6 +39,7 @@ impl Node {
                 match (ip_str.trim().parse::<IpAddr>(), port_str.trim().parse::<u16>()) {
                     (Ok(ip), Ok(port)) => {
                         let peers = PeerNode::get_peers_node_ips_from_env();
+                        println!("Peers {}", peers.clone().iter().len());
                         Node { ip, port, peers }
                     },
                     (Err(_), _) => panic!("Failed to parse NODE_IP as IpAddr"),
@@ -50,23 +51,9 @@ impl Node {
         }
     }
 
-    pub(crate) fn start(self) {
-        let node = Arc::new(Mutex::new(self));
-        
-        let node_listener = Arc::clone(&node);
-        let listener_thread = thread::spawn(move || {
-            let mut node = node_listener.lock().unwrap();
-            node.listen_for_connections();
-        });
-        
-        let node_peers = Arc::clone(&node);
-        let peer_thread = thread::spawn(move || {
-            let node = node_peers.lock().unwrap();
-            node.contact_peers();
-        });
-        
-        listener_thread.join().unwrap();
-        peer_thread.join().unwrap();
+    pub(crate) fn start(&mut self) {
+        self.contact_peers();
+        self.listen_for_connections();
     }
 
     pub(crate) fn connect(&self) -> io::Result<TcpStream> {
@@ -133,6 +120,12 @@ impl Node {
     }
 
     fn contact_peers(&self) {
+        if self.peers.is_empty() {
+            eprintln!("No peers to sync with.");
+            return;
+        }
+
+        println!("Syncing with {} peers...", self.peers.len());
         self.peers.iter().for_each(|peer| {
             match (self.connect_to_peer(peer)) {
                 Ok(mut stream) => {
