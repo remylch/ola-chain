@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  node1:
+    build: .
+    environment:
+      - NODE_IP=127.0.0.1
+      - NODE_PORT=9999
+      - BLOCKCHAIN_DATA_PATH=/app/data
+    ports:
+      - "9999:9999"
+    networks:
+      - blockchain-network
+    volumes:
+      - blockchain-data:/app/data
+
+  node2:
+    build: .
+    environment:
+      - NODE_IP=127.0.0.1
+      - NODE_PORT=9998
+      - NODES=127.0.0.1:9999
+      - BLOCKCHAIN_DATA_PATH=/app/data
+    ports:
+      - "9998:9998"
+    networks:
+      - blockchain-network
+    volumes:
+      - blockchain-data:/app/data
+    depends_on:
+      - node1
+    command: sh -c "sleep 2 && ./target/release/OlaChain"
+
+networks:
+  blockchain-network:
+    driver: bridge
+
+volumes:
+  blockchain-data: {}
