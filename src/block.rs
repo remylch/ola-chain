@@ -49,6 +49,33 @@ impl Block {
         hash_input.extend_from_slice(&timestamp.timestamp().to_le_bytes());
         hash_input.extend_from_slice(previous_hash.value.as_bytes());
         hash_input.extend_from_slice(data);
-        Hash::from_bytes(&hash_input)
+        Hash::new(&hash_input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_genesis_block() {
+        let genesis = Block::genesis();
+        assert!(!genesis.id.is_nil());
+        assert!(genesis.previous_block_hash.is_none());
+        assert_eq!(genesis.current_block_hash.value, "0".repeat(64));
+        assert!(genesis.data.is_empty());
+    }
+
+    #[test]
+    fn test_new_block() {
+        let previous_hash = Hash::genesis();
+        let data = b"Test block data".to_vec();
+        let block = Block::new(data.clone(), previous_hash.clone());
+
+        assert!(!block.id.is_nil());
+        assert_eq!(block.previous_block_hash.unwrap().value, previous_hash.value);
+        assert_eq!(block.data, data);
+        assert!(!block.current_block_hash.value.is_empty());
+        assert!(block.timestamp.timestamp() > 0);
     }
 }
