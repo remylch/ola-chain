@@ -4,14 +4,15 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::{env, fs};
+use crate::store::{Store, StoreError};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct Chain {
     difficulty: i8,
     genesis_block_hash: Hash,
     initialized_at: DateTime<Utc>,
     #[serde(skip)]
-    blocks: Vec<Block>,
+    pub(crate) blocks: Vec<Block>,
 }
 
 impl Chain {
@@ -34,10 +35,15 @@ impl Chain {
         }
     }
 
+    pub(crate) fn add_block(&mut self, block: Block) -> Result<Hash, StoreError> {
+        let hash = self.save(block)?;
+        Ok(hash)
+    }
+
     fn create_new_chain(file_to_save: String) -> Self {
         let initialized_at = Utc::now();
         let genesis_block = Block::genesis();
-        let genesis_block_hash = genesis_block.current_block_hash.clone();
+        let genesis_block_hash = genesis_block.current_block_hash.clone().unwrap();
 
         let chain = Chain {
             initialized_at,

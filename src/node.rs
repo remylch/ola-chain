@@ -1,9 +1,11 @@
+use crate::chain::Chain;
 use crate::peer::PeerNode;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::{IpAddr, TcpListener, TcpStream};
-use std::{env, io, thread};
-use std::sync::{Arc, Mutex};
+use std::{env, io};
+use crate::block_builder::BlockBuilder;
+use crate::store::StoreError;
 
 pub(crate) trait NodeInfo {
     fn ip(&self) -> IpAddr;
@@ -19,6 +21,7 @@ pub(crate) struct Node {
     port: u16,
     #[serde(skip)]
     peers: Vec<PeerNode>,
+    chain: Chain
 }
 
 impl NodeInfo for Node {
@@ -32,15 +35,14 @@ impl NodeInfo for Node {
 }
 
 impl Node {
-
-    pub(crate) fn me() -> Self {
+    pub(crate) fn me(chain: Chain) -> Self {
         match (env::var("NODE_IP"), env::var("NODE_PORT")) {
             (Ok(ip_str), Ok(port_str)) => {
                 match (ip_str.trim().parse::<IpAddr>(), port_str.trim().parse::<u16>()) {
                     (Ok(ip), Ok(port)) => {
                         let peers = PeerNode::get_peers_node_ips_from_env();
                         println!("Peers {}", peers.clone().iter().len());
-                        Node { ip, port, peers }
+                        Node { ip, port, peers, chain }
                     },
                     (Err(_), _) => panic!("Failed to parse NODE_IP as IpAddr"),
                     (_, Err(_)) => panic!("Failed to parse NODE_PORT as u16"),
@@ -53,12 +55,8 @@ impl Node {
 
     pub(crate) fn start(&mut self) {
         self.contact_peers();
+        self.building_new_block();
         self.listen_for_connections();
-    }
-
-    pub(crate) fn connect(&self) -> io::Result<TcpStream> {
-        let socket = (self.ip, 8080);
-        TcpStream::connect(socket)
     }
 
     fn handle_client(&mut self, mut stream: TcpStream) {
@@ -152,4 +150,25 @@ impl Node {
         TcpStream::connect(socket)
     }
 
+    fn building_new_block(&self) {
+        let block_builder = BlockBuilder::new(self.chain.clone());
+        let mut block_builder_clone = block_builder.clone();
+        std::thread::spawn(move || {
+            loop {
+                match block_builder_clone.mine_and_add_block() {
+                    Ok(hash) => {
+                        println!("Successfully mined new block to the chain. with hash : {}", hash.value);
+                    }
+                    Err(e) => {
+                        if matches!(e, StoreError::NoBlockToCreate()) {
+                            eprintln!("Failed to mine block: {}", e);
+                        }
+                    }
+                }
+
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
+        });
+
+    }
 }
